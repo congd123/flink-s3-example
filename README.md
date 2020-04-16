@@ -1,6 +1,6 @@
 # Flink to S3
 
-This example publishes records into S3 (Minio).
+This example publishes records into S3 (Minio). This is using AvroParquetWriter to write the files into S3.
 
 ## Configurations
 
