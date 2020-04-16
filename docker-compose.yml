@@ -1,0 +1,56 @@
+version: "2.2"
+
+services:
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data
+
+  miniosetup:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc config host add myminio http://minio:9000 minio minio123;
+      /usr/bin/mc mb myminio/data;
+      exit 0;
+      "
+
+  jobmanager:
+    build:
+      context: .
+    expose:
+      - "6123"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - miniosetup
+    command: jobmanager.sh start-foreground
+    volumes:
+      - ./docker/conf/flink:/opt/flink/conf
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - FLINK_ENV_JAVA_OPTS=-Dlog.file=/var/log/jobmanager.out
+
+  taskmanager:
+    build:
+      context: .
+    expose:
+      - "6121"
+      - "6122"
+    depends_on:
+      - jobmanager
+      - miniosetup
+    command: taskmanager.sh start-foreground
+    volumes:
+      - ./docker/conf/flink:/opt/flink/conf
+      - ./docker/conf/hadoop:/opt/hadoop/conf
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - FLINK_ENV_JAVA_OPTS=-Dlog.file=/var/log/taskmanager.out
